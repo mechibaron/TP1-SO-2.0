@@ -1,9 +1,3 @@
-#include <semaphore.h>
-#include <fcntl.h>           
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #define SEM_NAME "/sem_name"
 #define ERROR -1
 #define INITIAL_STATE 0

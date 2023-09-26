@@ -1,4 +1,4 @@
-#include "shmManager.h"
+#include "allIncludes.h"
 
 int create_shm(size_t shm_size){
 
@@ -61,4 +61,23 @@ void unlink_shm(){
         perror("shm_unlink");
         exit(EXIT_FAILURE);
     }
+}
+
+/*Utilizado en view para tener acesso a la memoria creada en application*/
+char * ropen_shm(int * shm_fd, size_t shm_size){
+    *shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDONLY, 00400);
+    if (*shm_fd == ERROR)
+    {
+        perror("shm_open");
+        exit(EXIT_FAILURE);
+    }
+
+    char * shm_base_ptr = mmap(NULL, shm_size, PROT_READ, MAP_SHARED, *shm_fd, INITIAL_MEM_ADDRESS);
+    if (shm_base_ptr == MAP_FAILED)
+    {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
+
+    return shm_base_ptr;
 }

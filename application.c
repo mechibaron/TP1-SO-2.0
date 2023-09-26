@@ -1,18 +1,6 @@
-#include <dirent.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <math.h>
-#include <time.h>
+#include "allIncludes.h"
 
-/*
-*****NOTES TO IMPLEMENT (delete when TP is finished)*****
-1) arreglar el FD_SET
-*/
+#define MAX_SLAVES 10
 
 typedef struct slave
 {
@@ -30,20 +18,34 @@ int main(int argc, char * argv[]){
     }
 
     int files = argc - 1; 
-    int slaveAmmount = (int) log2((double) files);
+    int slaveAmmount;
 
+    size_t shm_size = PAGE_SIZE*cant_files;
+    char first_run[MAX_SLAVES];
+    memset(first_run, 0, MAX_SLAVES);
+
+    //Calculamos cantidad de esclavos y recalculamos tamano de memoria segun si hay carga incial de 2 paths
+    if(files > MAX_SLAVES){
+        slaveAmmount = MAX_SLAVES;
+        if (files > MAX_SLAVES*2){
+            memset(first_run, 1, MAX_SLAVES);
+            shm_size = PAGE_SIZE * (cant_files - MAX_SLAVES);
+        }
+        else{
+            for (int i = 0; i < files - MAX_SLAVES; i++){
+                first_run[i] = 1;
+                shm_size -= PAGE_SIZE;
+            }
+        }
+        
+    }
+    else {
+        slaveAmmount = cant_files;
+    }
+    
     slave slaves[slaveAmmount];
 
-    /*en caso de que pasen solo un arg log2(1) = 0 entonces
-    necestio al menos un slave porque sino no funciona*/
-    if(slaveAmmount< 1){
-        slaveAmmount++;
-    }
-
-
-    fd_set readFromSlaves[slaveAmmount];
-
-    for (int i = 0; i < 2;i++) {
+    for (int i = 0; i < slaveAmmount;i++) {
 
         
         pipe(slaves[i].masterToSlave);
@@ -53,12 +55,7 @@ int main(int argc, char * argv[]){
         pipe(slaves[i].slaveToMaster);
         /*Cierro el extremo de lectura pues leere del de escritura del master*/
         close(slaves[i].slaveToMaster[0]);
-
-        /*Me guardo el extremo de escritura del slave en un set para utilizar luego con 
-        el select*/
-        //FD_SET((*slaves[i]).slaveToMaster[1],&readFromSlaves);
         
-
         /*Fork salio bien*/
         if((slaves[i].pidNum = fork()) == 0){
             char* vars = {"./slave",NULL};
@@ -88,6 +85,12 @@ int main(int argc, char * argv[]){
     }
 
 
+    fd_set readFromSlaves;
 
+    FD_ZERO(readFromSlaves);
+
+    for(int i = 0;i < slaveAmmount;i++){
+        FD_SET(slaves[i].slaveToMaster[1],&readFromSlaves);
+    }
 
 }

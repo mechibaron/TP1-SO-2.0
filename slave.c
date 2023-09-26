@@ -1,10 +1,4 @@
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <signal.h>
+#include "allIncludes.h"
 
 int calculateMd5(char *filePath,char * ansBuffer){
 
@@ -37,5 +31,15 @@ int calculateMd5(char *filePath,char * ansBuffer){
     pclose(fp);
     free(command);
     free(mypid);
+    
+    size_t output_dim = write(STD_OUT, output, strlen(output));
+        if(output_dim == ERROR){
+            perror("write");
+            exit(EXIT_FAILURE);
+        }
+    
+}
+
+int main(){
     
 }
