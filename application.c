@@ -1,4 +1,8 @@
-#include "allIncludes.h"
+//#include "allIncludes.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <allIncludes.h>
 
 #define MAX_SLAVES 10
 
@@ -106,10 +110,10 @@ int main(int argc, char * argv[]){
 
 
     /*Preparo los FDS para encargarme de pasar toda la informacion a un archivo txt*/
-    FILE * file;
+    FILE * fd;
     char filename[] = "Md5Results.txt";
-    file = fopen(filename, "w");
-    if (file == NULL){
+    fd = fopen(filename, "w");
+    if (fd == NULL){
         perror("fopen");
         exit(EXIT_FAILURE);
     }
@@ -127,7 +131,7 @@ int main(int argc, char * argv[]){
     unlink_sem();
 
     /*Cierro el archivo */
-    if (fclose(file) == ERROR) {
+    if (fclose(fd) == ERROR) {
         perror("Error al cerrar el archivo de resultados");
         exit(EXIT_FAILURE);
     }
