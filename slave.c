@@ -10,7 +10,7 @@ int calculateMd5(char *filePath,char * ansBuffer){
     strcpy(command,"md5sum ");
     strcpy(command,"\"");
     strcpy(command,filePath);
-    strcpy(command,"\" 2>/dev/null");
+    strcpy(command,"\"");
 
     FILE *fp = popen(command,"r");
     if(fp == NULL){
