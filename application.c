@@ -92,16 +92,16 @@ int main(int argc, char * argv[]){
     fd_set readFromSlaves;
 
     FD_ZERO(readFromSlaves);
-
+    for(int i = 0;i < slaveAmmount;i++){
+        FD_SET(slaves[i].slaveToMaster[1],&readFromSlaves);
+    }
     /*Ahora debemos mapear el objeto de memoria compartida a una serie de direcciones dentro del espacio de memoria del proceso*/
     char * shm_base_ptr = mmap_shm(shm_fd, shm_size);
 
     /*Creo el semaforo*/
     sem_t * semaphore = create_sem();
 
-    for(int i = 0;i < slaveAmmount;i++){
-        FD_SET(slaves[i].slaveToMaster[1],&readFromSlaves);
-    }
+    
 
 
 
