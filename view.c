@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "shmManager.h"
+#include "allIncludes.h"
 
 #define MAX_SHM_SIZE 20
 #define NO_PARAMETER 1
