@@ -1,138 +1,108 @@
-//#include "allIncludes.h"
-
-#include <stdlib.h>
 #include <stdio.h>
-#include <allIncludes.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/select.h>
 
 #define MAX_SLAVES 10
 
-typedef struct slave
-{
+typedef struct {
     int pidNum;
-    int masterPipes[2];
-    int slavePipes[2];
-}slave;
+    int toSlavePipe[2];
+    int fromSlavePipe[2];
+} SlaveInfo;
 
-
-int main(int argc, char * argv[]){
-
-    if(argc < 2){
-        perror("No files or directory passed to analize");
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <file1> <file2> ... <fileN>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    int files = argc - 1; 
-    int slaveAmmount;
+    int numFiles = argc - 1;
+    int numSlaves = (numFiles > MAX_SLAVES) ? MAX_SLAVES : numFiles;
 
-    size_t shm_size = PAGE_SIZE*cant_files;
-    char first_run[MAX_SLAVES];
-    memset(first_run, 0, MAX_SLAVES);
-
-    //Calculamos cantidad de esclavos y recalculamos tamano de memoria segun si hay carga incial de 2 paths
-    if(files > MAX_SLAVES){
-        slaveAmmount = MAX_SLAVES;
-        if (files > MAX_SLAVES*2){
-            memset(first_run, 1, MAX_SLAVES);
-            shm_size = PAGE_SIZE * (cant_files - MAX_SLAVES);
-        }
-        else{
-            for (int i = 0; i < files - MAX_SLAVES; i++){
-                first_run[i] = 1;
-                shm_size -= PAGE_SIZE;
-            }
-        }
-        
-    }
-    else {
-        slaveAmmount = cant_files;
-    }
-
-    /*Le paso el tamano de la memoria*/
-    printf("%ld", shm_size);
-    fflush(stdout);
-    
-    slave slaves[slaveAmmount];
-
-    for (int i = 0; i < slaveAmmount;i++) {
-
-        
-        pipe(slaves[i].masterPipes);
-        /*Cierro el extremo de lectura pues leere del de escritura del slave*/
-        close(slaves[i].masterPipes[0]);
-
-        pipe(slaves[i].slavePipes);
-        /*Cierro el extremo de lectura pues leere del de escritura del master*/
-        close(slaves[i].slavePipes[0]);
-        
-        /*Fork salio bien*/
-        if((slaves[i].pidNum = fork()) == 0){
-            char* vars = {"./slave",NULL};
-            
-            close(STDIN_FILENO);
-            dup(slaves[i].slavePipes[0]);
-
-            close(STDOUT_FILENO);
-            dup(slaves[i].slavePipes[1]);
-
-            /*Antes de irme con el exceve como el fork
-            me duplica todos los pipes debo cerrar aquellos que no utilizare*/
-            for (int w = 0; w < i+1; w++) {
-                for (int j = 0; j < 2; j++) {
-                    close(slaves[w].masterPipes[j]);
-                    close(slaves[w].slavePipes[j]);
-                }
-            }
-
-            execve("./slave",vars,NULL);
-
-            
-            perror("execve");
-            exit(EXIT_FAILURE);    
-
-        }
-    }
-
+    SlaveInfo slaves[MAX_SLAVES];
+    char resultBuffer[1024];
 
     fd_set readFromSlaves;
+    FD_ZERO(&readFromSlaves);
 
-    FD_ZERO(readFromSlaves);
-    for(int i = 0;i < slaveAmmount;i++){
-        FD_SET(slaves[i].slaveToMaster[1],&readFromSlaves);
+    int maxFd = 0;
+
+    for (int i = 0; i < numSlaves; i++) {
+        pipe(slaves[i].toSlavePipe);
+        pipe(slaves[i].fromSlavePipe);
+
+        if ((slaves[i].pidNum = fork()) == 0) {
+            // Código para el proceso hijo (slave)
+            close(slaves[i].toSlavePipe[1]);
+            close(slaves[i].fromSlavePipe[0]);
+
+            // Redirecciona las entradas/salidas estándar según sea necesario
+            dup2(slaves[i].toSlavePipe[0], STDIN_FILENO);
+            dup2(slaves[i].fromSlavePipe[1], STDOUT_FILENO);
+
+            execl("./slave", "slave", NULL);
+
+            perror("execl");
+            exit(EXIT_FAILURE);
+        } else if (slaves[i].pidNum == -1) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        } else {
+            // Código para el proceso padre
+            close(slaves[i].fromSlavePipe[1]);
+            close(slaves[i].toSlavePipe[0]);
+
+            FD_SET(slaves[i].fromSlavePipe[0], &readFromSlaves);
+            if (slaves[i].fromSlavePipe[0] > maxFd) {
+                maxFd = slaves[i].fromSlavePipe[0];
+            }
+        }
     }
-    /*Ahora debemos mapear el objeto de memoria compartida a una serie de direcciones dentro del espacio de memoria del proceso*/
-    char * shm_base_ptr = mmap_shm(shm_fd, shm_size);
 
-    /*Creo el semaforo*/
-    sem_t * semaphore = create_sem();
-
-    
-
-
-
-    /*Preparo los FDS para encargarme de pasar toda la informacion a un archivo txt*/
-    FILE * fd;
-    char filename[] = "Md5Results.txt";
-    fd = fopen(filename, "w");
-    if (fd == NULL){
+    FILE *resultFile = fopen("resultado.txt", "w");
+    if (resultFile == NULL) {
         perror("fopen");
         exit(EXIT_FAILURE);
     }
 
-    /*MEJORAR CICLO DE WRITE Y PASAJE DE ARCHIVOS*/
-    /*Terminamos con la memoria, la cerramos ya que no hay ams archivos para procesar*/
-    close_shm(shm_fd, shm_base_ptr, shm_size);
-
-    /*La eliminamos*/
-    unlink_shm();
-
-    /*Termino con el semaforo y lo deslinkeo*/
-    close_sem(semaphore);
-
-    unlink_sem();
-
-    /*Cierro el archivo */
-    if (fclose(fd) == ERROR) {
-        perror("Error al cerrar el archivo de resultados");
-        exit(EXIT_FAILURE);
+    for (int i = 1; i < argc; i++) {
+        // printf("filePaht: %s\n",argv[i]);
+        write(slaves[i - 1].toSlavePipe[1], argv[i], strlen(argv[i]));
+        write(slaves[i - 1].toSlavePipe[1], "\n", 1); // Envía una nueva línea después del nombre del archivo
     }
+
+    int filesRead = 0; // Inicializamos a 0 para que entre al menos una vez
+
+    while (filesRead < numFiles) {
+        fd_set readSet = readFromSlaves;
+        int selectResult = select(maxFd + 1, &readSet, NULL, NULL, NULL);
+
+        if (selectResult == -1) {
+            perror("select");
+            exit(EXIT_FAILURE);
+        }
+
+        for (int i = 0; i < numSlaves; i++) {
+            if (FD_ISSET(slaves[i].fromSlavePipe[0], &readSet)) {
+                int bytesRead = read(slaves[i].fromSlavePipe[0], resultBuffer, sizeof(resultBuffer));
+                if (resultBuffer[bytesRead - 1] == '\n') {
+                    resultBuffer[bytesRead - 1] = '\0';
+                }
+                if (bytesRead > 0) {
+                    printf("resultBuffer: %s\n", resultBuffer);
+                    fprintf(resultFile, "%s\n", resultBuffer);
+                    filesRead++;
+                }
+            }
+        }
+
+    }
+
+    fclose(resultFile);
+
+    return 0;
 }

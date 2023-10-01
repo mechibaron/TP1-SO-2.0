@@ -22,5 +22,5 @@
 #include <signal.h>
 
 
-#include "semManagement.h"
-#include "shmManager.h"
+// #include "semManagement.h"
+// #include "shmManager.h"

@@ -1,0 +1,8 @@
+44522-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text0.txt
+44527-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text5.txt
+44523-fa8fbd84b49cb2bcf35e00db7a90899a  Textos/text1.txt
+44524-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text2.txt
+44525-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text3.txt
+44526-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text4.txt
+44529-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text7.txt
+44528-e472cdd6355b6ae710e7a380e4fd8fcd  Textos/text6.txt
