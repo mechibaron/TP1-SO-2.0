@@ -1,6 +1,6 @@
-#include <stdio.h>
-#include <stdint.h>
-#include "allIncludes.h"
+#include "semManagement.h"
+#include "shmManager.h"
+
 
 #define MAX_SHM_SIZE 20
 #define NO_PARAMETER 1
@@ -17,7 +17,7 @@ int main(int argc, char const *argv[]) {
         memset(pipe_data, 0, MAX_SHM_SIZE);
         // Leemos el nombre de la memoria compartida y el nombre del semáforo del pipe
 
-        if(read(STD_IN, pipe_data, MAX_SHM_SIZE) == ERROR){
+        if(read(STDIN_FILENO, pipe_data, MAX_SHM_SIZE) == ERROR){
             perror("read");
             exit(EXIT_FAILURE);
         }

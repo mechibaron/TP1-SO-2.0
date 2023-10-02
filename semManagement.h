@@ -1,3 +1,4 @@
+#include "allIncludes.h"
 #define SEM_NAME "/sem_name"
 #define ERROR -1
 #define INITIAL_STATE 0

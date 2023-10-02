@@ -1,4 +1,4 @@
-#include "allIncludes.h"
+#include "shmManager.h"
 
 int create_shm(size_t shm_size){
 
