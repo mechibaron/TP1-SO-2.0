@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 
+#include "shm.h"
 
 #define NUM_SLAVES 4
 #define FILES_PER_SLAVE 2
@@ -19,7 +20,6 @@ typedef struct {
 
 // Función para distribuir archivos a los esclavos
 void distributeFilesToSlaves(SlaveInfo slaves[], char *argv[], int numFiles, int numSlaves, int initialFilesPerSlave) {
-    printf("entre\n");
     static int filesSend = 0;
     for (int i = 0; i < numSlaves; i++) {
         for (int j = 0; j < initialFilesPerSlave; j++) {
@@ -32,7 +32,6 @@ void distributeFilesToSlaves(SlaveInfo slaves[], char *argv[], int numFiles, int
             filesSend++;
         }
     }
-    printf("filesSend: %d\n",filesSend);
 }
 
 
@@ -44,13 +43,13 @@ int main(int argc, char *argv[]) {
 
     int numFiles = argc - 1;
     int numSlaves = (NUM_SLAVES > numFiles) ? numFiles : NUM_SLAVES;
-    int initialFilesPerSlave = FILES_PER_SLAVE;
+    int FilesPerSlave = FILES_PER_SLAVE;
 
 
-    if (numSlaves * initialFilesPerSlave > numFiles) {
-        initialFilesPerSlave = numFiles / numSlaves;
+    if (numSlaves * FilesPerSlave > numFiles) {
+        FilesPerSlave = numFiles / numSlaves;
     }
-    int filesLeftToDistribute = numFiles - (numSlaves * initialFilesPerSlave);
+    int filesLeftToDistribute = numFiles - (numSlaves * FilesPerSlave);
 
     SlaveInfo slaves[NUM_SLAVES];
     char resultBuffer[1024];
@@ -98,8 +97,11 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    printf("initfiles: %d\n", initialFilesPerSlave);
-    distributeFilesToSlaves(slaves, argv, numFiles, numSlaves, initialFilesPerSlave);
+    shm_ADT sharedMemory = create_shm(numFiles * FILE_SIZE_SHM);
+    printf("%s %d \n", sharedMemory->shm_name, numFiles);
+    sleep(2);
+    
+    distributeFilesToSlaves(slaves, argv, numFiles, numSlaves, FilesPerSlave);
 
     int filesRead = 0; 
 
@@ -119,12 +121,13 @@ int main(int argc, char *argv[]) {
                     resultBuffer[bytesRead - 1] = '\0';
                 }
                 if (bytesRead > 0) {
-                    printf("resultBuffer: %s\n", resultBuffer);
+                    // printf("resultBuffer: %s\n", resultBuffer);
                     fprintf(resultFile, "%s\n", resultBuffer);
+                    write_shm(sharedMemory, resultBuffer, strlen(resultBuffer));
                     filesRead++;
                     if (filesLeftToDistribute > 0) {
-                            int filesToDistribute = (filesLeftToDistribute < initialFilesPerSlave) ? filesLeftToDistribute : initialFilesPerSlave;
-                        distributeFilesToSlaves(slaves, argv, numFiles, numSlaves, initialFilesPerSlave);
+                            int filesToDistribute = (filesLeftToDistribute < FilesPerSlave) ? filesLeftToDistribute : FilesPerSlave;
+                        distributeFilesToSlaves(slaves, argv, numFiles, numSlaves, FilesPerSlave);
                         filesLeftToDistribute -= filesToDistribute;
                     }
                 }
@@ -134,6 +137,8 @@ int main(int argc, char *argv[]) {
     }
 
     fclose(resultFile);
+    delete_semaphores(sharedMemory);
+    delete_shm(sharedMemory);
 
     return 0;
 }
