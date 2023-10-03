@@ -1,7 +1,8 @@
-#include "allIncludes.h"
 #include <stdio.h>
 #include <string.h>
-
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 int calculateMd5(char *filePath, char *ansBuffer) {
     int pid = getpid();
@@ -48,27 +49,35 @@ int calculateMd5(char *filePath, char *ansBuffer) {
 }
 
 
-int main(){
-    // printf("Buenas estoy en slave\n");
+int main() {
+    printf("Buenas, estoy en slave\n");
+
     ssize_t nbytes;
-    char filePath[256];
-    char ansBuffer[256];
-    while((nbytes = read(STDIN_FILENO, filePath, sizeof(filePath))) > 0){
-        strcpy(ansBuffer,"");
-        if (filePath[nbytes - 1] == '\n') {
-            filePath[nbytes - 1] = '\0';
+    char inputBuffer[4096];  // Tamaño suficientemente grande para almacenar la entrada
+
+    while ((nbytes = read(STDIN_FILENO, inputBuffer, sizeof(inputBuffer))) > 0) {
+        // Reemplazamos el salto de línea final con un carácter nulo
+        if (inputBuffer[nbytes - 1] == '\n') {
+            inputBuffer[nbytes - 1] = '\0';
         }
-        // printf("filepaht: %s\n",filePath);
-        if(calculateMd5(filePath, ansBuffer) == 0){
-            size_t output_dim = write(STDOUT_FILENO, ansBuffer, strlen(ansBuffer));
-            if(output_dim == -1){
-                perror("write");
-                exit(EXIT_FAILURE);
+
+        char *token = strtok(inputBuffer, " ");  // Dividir la entrada en tokens por espacios en blanco
+
+        while (token != NULL) {
+            char ansBuffer[256] = "";  // Buffer para almacenar el resultado MD5
+            if (calculateMd5(token, ansBuffer) == 0) {
+                size_t output_dim = write(STDOUT_FILENO, ansBuffer, strlen(ansBuffer));
+                if (output_dim == -1) {
+                    perror("write");
+                    exit(EXIT_FAILURE);
+                }
+            } else {
+                fprintf(stderr, "Error calculating MD5 for file: %s\n", token);
             }
-        } else {
-            // fprintf(stderr, "Error calculating MD5\n");
-            // return 1;
+
+            token = strtok(NULL, " ");  // Obtener el siguiente token
         }
     }
+
     return 0;
 }

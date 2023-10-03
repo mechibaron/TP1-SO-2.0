@@ -1,15 +1,13 @@
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <unistd.h>
-// #include <sys/types.h>
-// #include <sys/wait.h>
-// #include <sys/select.h>
-#include "shmManager.h"
-#include "semManagement.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/select.h>
 
-#define NUM_SLAVES 5
+
+#define NUM_SLAVES 4
 #define FILES_PER_SLAVE 2
 
 typedef struct {
@@ -21,6 +19,7 @@ typedef struct {
 
 // Función para distribuir archivos a los esclavos
 void distributeFilesToSlaves(SlaveInfo slaves[], char *argv[], int numFiles, int numSlaves, int initialFilesPerSlave) {
+    printf("entre\n");
     static int filesSend = 0;
     for (int i = 0; i < numSlaves; i++) {
         for (int j = 0; j < initialFilesPerSlave; j++) {
@@ -29,10 +28,11 @@ void distributeFilesToSlaves(SlaveInfo slaves[], char *argv[], int numFiles, int
             }
 
             write(slaves[i].toSlavePipe[1], argv[filesSend + 1], strlen(argv[filesSend + 1]));
-            write(slaves[i].toSlavePipe[1], "\n", 1);
+            write(slaves[i].toSlavePipe[1], " ", 1);
             filesSend++;
         }
     }
+    printf("filesSend: %d\n",filesSend);
 }
 
 
@@ -43,15 +43,14 @@ int main(int argc, char *argv[]) {
     }
 
     int numFiles = argc - 1;
-    int numSlaves = NUM_SLAVES;
+    int numSlaves = (NUM_SLAVES > numFiles) ? numFiles : NUM_SLAVES;
     int initialFilesPerSlave = FILES_PER_SLAVE;
 
-    int totalFilesToDistribute = numFiles - 1;
 
-    if (numSlaves * initialFilesPerSlave > totalFilesToDistribute) {
-        initialFilesPerSlave = totalFilesToDistribute / numSlaves;
+    if (numSlaves * initialFilesPerSlave > numFiles) {
+        initialFilesPerSlave = numFiles / numSlaves;
     }
-    int filesLeftToDistribute = totalFilesToDistribute - (numSlaves * initialFilesPerSlave);
+    int filesLeftToDistribute = numFiles - (numSlaves * initialFilesPerSlave);
 
     SlaveInfo slaves[NUM_SLAVES];
     char resultBuffer[1024];
@@ -99,11 +98,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // for (int i = 1; i < argc; i++) {
-    //     // printf("filePaht: %s\n",argv[i]);
-    //     write(slaves[i - 1].toSlavePipe[1], argv[i], strlen(argv[i]));
-    //     write(slaves[i - 1].toSlavePipe[1], "\n", 1); 
-    // }
+    printf("initfiles: %d\n", initialFilesPerSlave);
     distributeFilesToSlaves(slaves, argv, numFiles, numSlaves, initialFilesPerSlave);
 
     int filesRead = 0; 
@@ -128,11 +123,9 @@ int main(int argc, char *argv[]) {
                     fprintf(resultFile, "%s\n", resultBuffer);
                     filesRead++;
                     if (filesLeftToDistribute > 0) {
+                            int filesToDistribute = (filesLeftToDistribute < initialFilesPerSlave) ? filesLeftToDistribute : initialFilesPerSlave;
                         distributeFilesToSlaves(slaves, argv, numFiles, numSlaves, initialFilesPerSlave);
-                        // Distribuir un archivo adicional al esclavo actual
-                        // write(slaves[i].toSlavePipe[1], argv[filesRead], strlen(argv[filesRead]));
-                        // write(slaves[i].toSlavePipe[1], "\n", 1);
-                        filesLeftToDistribute--;
+                        filesLeftToDistribute -= filesToDistribute;
                     }
                 }
             }
